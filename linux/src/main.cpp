@@ -156,13 +156,31 @@ static void handleStopStream(const phonebridge::PacketHeader& header, const uint
 
 static void handleAudioConfig(const phonebridge::PacketHeader& header, const uint8_t* payload, size_t payloadLen) {
     if (payloadLen < 5) return;
-    uint8_t sampleRate = payload[0];
+    uint8_t sampleRateCode = payload[0];
     uint8_t channels = payload[1];
-    printf("[INFO] Audio config: sampleRate=%s, channels=%d\n",
-           sampleRate == 0 ? "16000" : "48000", channels);
+    uint16_t bitDepth = 0;
+    memcpy(&bitDepth, payload + 2, 2);
+    uint8_t format = payload[4];
+
+    int sampleRate = (sampleRateCode == 0) ? 16000 : 48000;
+    printf("[INFO] Audio config: %d Hz, %d ch, %d-bit, format=%d\n", sampleRate, channels, bitDepth, format);
+
+    if (g_virtualAudio) {
+        g_virtualAudio->shutdown();
+        g_virtualAudio->initialize(sampleRate, channels);
+    }
 
     uint32_t seq = g_usb->nextSequence();
     g_usb->sendPacket(phonebridge::MessageType::AUDIO_CONFIG_ACK, 0, seq);
+
+    phonebridge::GuiState state;
+    state.status = "Connected";
+    state.device = g_gui ? "Android Device" : "None";
+    state.camera = "Ready";
+    char micInfo[64];
+    snprintf(micInfo, sizeof(micInfo), "%d Hz, %d ch", sampleRate, channels);
+    state.microphone = micInfo;
+    g_gui->updateState(state);
 }
 
 static void handleAudioFrame(const phonebridge::PacketHeader& header, const uint8_t* payload, size_t payloadLen) {
@@ -243,15 +261,24 @@ int main(int argc, char* argv[]) {
         printf("[INFO] Waiting for HELLO from Android...\n");
     };
 
-    usb.onDisconnected = [&gui]() {
+    usb.onDisconnected = [&gui, &decoder, &camera, &virtualAudio]() {
         printf("[INFO] USB device disconnected\n");
         g_streaming = false;
+        g_receivingFrame = false;
+        g_frameBuffer.clear();
+
+        if (g_camera) { g_camera->shutdown(); }
+        if (g_decoder) { g_decoder->shutdown(); }
+        if (g_virtualAudio) { g_virtualAudio->shutdown(); }
+
         phonebridge::GuiState state;
         state.status = "Disconnected";
         state.device = "None";
         state.camera = "Stopped";
         state.microphone = "Stopped";
         gui.updateState(state);
+
+        printf("[INFO] All streams stopped. Waiting for reconnection...\n");
     };
 
     usb.onError = [](const std::string& error) {

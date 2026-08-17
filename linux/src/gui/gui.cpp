@@ -159,9 +159,10 @@ void Gui::updateState(const GuiState& state) {
     if (impl_->audioLabel) gtk_label_set_text(GTK_LABEL(impl_->audioLabel), state.microphone.c_str());
 
     bool connected = (state.status == "Connected");
+    bool streaming = connected && state.camera != "Stopped" && state.camera != "Ready";
     gtk_widget_set_sensitive(impl_->connectButton, !connected);
-    gtk_widget_set_sensitive(impl_->startButton, connected);
-    gtk_widget_set_sensitive(impl_->stopButton, FALSE);
+    gtk_widget_set_sensitive(impl_->startButton, connected && !streaming);
+    gtk_widget_set_sensitive(impl_->stopButton, streaming);
 }
 
 } // namespace phonebridge
