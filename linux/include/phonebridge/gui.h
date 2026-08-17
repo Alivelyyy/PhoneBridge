@@ -3,6 +3,7 @@
 
 #include <string>
 #include <functional>
+#include <cstdint>
 
 namespace phonebridge {
 
@@ -12,8 +13,13 @@ struct GuiState {
     std::string camera = "Stopped";
     std::string microphone = "Stopped";
     int videoFps = 0;
+    int videoWidth = 0;
+    int videoHeight = 0;
     int bitrate = 0;
-    int latency = 0;
+    double latencyMs = 0.0;
+    uint64_t videoFrames = 0;
+    uint64_t audioFrames = 0;
+    uint64_t droppedFrames = 0;
 };
 
 class Gui {
@@ -27,7 +33,6 @@ public:
 
     void updateState(const GuiState& state);
 
-    // Callbacks
     std::function<void()> onConnect;
     std::function<void()> onStart;
     std::function<void()> onStop;

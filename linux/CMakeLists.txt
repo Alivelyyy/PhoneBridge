@@ -26,6 +26,7 @@ set(SOURCES
     src/audio/audio_handler.cpp
     src/virtual_camera/virtual_camera.cpp
     src/virtual_audio/virtual_audio.cpp
+    src/config/config.cpp
     src/gui/gui.cpp
 )
 
@@ -37,6 +38,7 @@ set(HEADERS
     include/phonebridge/audio_handler.h
     include/phonebridge/virtual_camera.h
     include/phonebridge/virtual_audio.h
+    include/phonebridge/config.h
     include/phonebridge/gui.h
 )
 

@@ -62,7 +62,7 @@ object Protocol {
         buffer.putShort(flags)
         buffer.putInt(payloadLen)
         buffer.putInt(sequence)
-        buffer.putLong(System.nanoTime() / 1000) // microseconds
+        buffer.putLong(System.currentTimeMillis() * 1000) // microseconds since epoch
         buffer.putInt(if (payload != null && payloadLen > 0) calculateChecksum(payload).toInt() else 0)
 
         if (payload != null && payloadLen > 0) {

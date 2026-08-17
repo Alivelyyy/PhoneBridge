@@ -173,6 +173,9 @@ class MainActivity : AppCompatActivity() {
                 Protocol.MessageType.VIDEO_CONFIG_ACK -> {
                     Log.i(TAG, "Received VIDEO_CONFIG_ACK")
                 }
+                Protocol.MessageType.AUDIO_CONFIG_ACK -> {
+                    Log.i(TAG, "Received AUDIO_CONFIG_ACK")
+                }
                 Protocol.MessageType.PING -> {
                     Log.i(TAG, "Received PING")
                     usbConnection.sendPong()
@@ -180,6 +183,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 Protocol.MessageType.ERROR -> {
                     Log.e(TAG, "Received ERROR from Linux")
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Error from Linux device", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 else -> {
                     Log.w(TAG, "Unhandled message type: 0x${String.format("%02X", header.type)}")
