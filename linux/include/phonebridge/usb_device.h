@@ -41,6 +41,7 @@ public:
     bool initialize();
     void shutdown();
 
+    bool switchToAoaMode();
     bool scanForDevice();
     bool connect();
     void disconnect();

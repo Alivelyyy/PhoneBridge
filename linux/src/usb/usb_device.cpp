@@ -42,6 +42,64 @@ void UsbDevice::shutdown() {
     }
 }
 
+static bool isAoaPid(uint16_t pid) {
+    return pid == AOA_PID || pid == AOA_ACCESSORY_PID || pid == AOA_ADB_PID ||
+           pid == AOA_AUDIO_PID || pid == AOA_AUDIO_ADB_PID || pid == AOA_AUDIO_ACCESSORY_PID;
+}
+
+bool UsbDevice::switchToAoaMode() {
+    if (!impl_->context) return false;
+
+    libusb_device** devices;
+    ssize_t count = libusb_get_device_list(impl_->context, &devices);
+    if (count < 0) {
+        if (onError) onError("Failed to get USB device list for AOA switch");
+        return false;
+    }
+
+    for (ssize_t i = 0; i < count; i++) {
+        struct libusb_device_descriptor desc;
+        if (libusb_get_device_descriptor(devices[i], &desc) != 0) continue;
+
+        if (desc.idVendor != AOA_VID) continue;
+        if (isAoaPid(desc.idProduct)) continue;
+
+        printf("[INFO] Found Android device (VID=0x%04X, PID=0x%04X), switching to AOA mode...\n",
+               desc.idVendor, desc.idProduct);
+
+        libusb_device_handle* tempHandle = nullptr;
+        int result = libusb_open(devices[i], &tempHandle);
+        if (result != 0) {
+            if (onError) onError("Failed to open device for AOA switch: " + std::string(libusb_error_name(result)));
+            continue;
+        }
+
+        result = libusb_control_transfer(
+            tempHandle,
+            0x40,
+            AOA_START_ACCESSORY,
+            1,
+            0,
+            nullptr,
+            0,
+            USB_TIMEOUT_MS
+        );
+
+        libusb_close(tempHandle);
+
+        if (result >= 0) {
+            printf("[INFO] AOA switch command sent successfully\n");
+            libusb_free_device_list(devices, 1);
+            return true;
+        } else {
+            if (onError) onError("Failed to send AOA switch command: " + std::string(libusb_error_name(result)));
+        }
+    }
+
+    libusb_free_device_list(devices, 1);
+    return false;
+}
+
 bool UsbDevice::scanForDevice() {
     if (!impl_->context) return false;
 
@@ -56,22 +114,14 @@ bool UsbDevice::scanForDevice() {
         struct libusb_device_descriptor desc;
         if (libusb_get_device_descriptor(devices[i], &desc) != 0) continue;
 
-        if (desc.idVendor == AOA_VID) {
-            bool isAoa = (desc.idProduct == AOA_PID ||
-                          desc.idProduct == AOA_ACCESSORY_PID ||
-                          desc.idProduct == AOA_ADB_PID ||
-                          desc.idProduct == AOA_AUDIO_PID ||
-                          desc.idProduct == AOA_AUDIO_ADB_PID ||
-                          desc.idProduct == AOA_AUDIO_ACCESSORY_PID);
-            if (isAoa) {
-                impl_->deviceInfo.vendorId = desc.idVendor;
-                impl_->deviceInfo.productId = desc.idProduct;
-                impl_->deviceInfo.isAoaDevice = true;
-                impl_->device = devices[i];
-                libusb_ref_device(impl_->device);
-                libusb_free_device_list(devices, 1);
-                return true;
-            }
+        if (desc.idVendor == AOA_VID && isAoaPid(desc.idProduct)) {
+            impl_->deviceInfo.vendorId = desc.idVendor;
+            impl_->deviceInfo.productId = desc.idProduct;
+            impl_->deviceInfo.isAoaDevice = true;
+            impl_->device = devices[i];
+            libusb_ref_device(impl_->device);
+            libusb_free_device_list(devices, 1);
+            return true;
         }
     }
 

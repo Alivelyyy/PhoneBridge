@@ -7,7 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbAccessory
 import android.hardware.usb.UsbManager
 import android.os.Bundle
 import android.util.Log
@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var usbManager: UsbManager
     private val usbConnection = UsbConnection()
-    private var connectedDevice: UsbDevice? = null
     private var videoStream: VideoStream? = null
     private var audioStream: AudioStream? = null
 
@@ -46,19 +45,21 @@ class MainActivity : AppCompatActivity() {
             when (intent.action) {
                 ACTION_USB_PERMISSION -> {
                     synchronized(this) {
-                        val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                        val accessory = intent.getParcelableExtra<UsbAccessory>(UsbManager.EXTRA_ACCESSORY)
                         if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                            device?.let { onDevicePermissionGranted(it) }
+                            accessory?.let { onAccessoryPermissionGranted(it) }
                         } else {
                             updateStatus("USB permission denied")
                         }
                     }
                 }
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-                    if (device?.deviceId == connectedDevice?.deviceId) {
-                        onDeviceDisconnected()
-                    }
+                UsbManager.ACTION_USB_ACCESSORY_DETACHED -> {
+                    Log.i(TAG, "USB accessory detached")
+                    onDeviceDisconnected()
+                }
+                UsbManager.ACTION_USB_ACCESSORY_ATTACHED -> {
+                    Log.i(TAG, "USB accessory attached")
+                    findAndConnectAccessory()
                 }
             }
         }
@@ -78,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
 
-        connectButton.setOnClickListener { findAndConnectDevice() }
+        connectButton.setOnClickListener { findAndConnectAccessory() }
         startButton.setOnClickListener { startStreaming() }
         stopButton.setOnClickListener { stopStreaming() }
 
@@ -94,15 +95,33 @@ class MainActivity : AppCompatActivity() {
 
         requestCameraPermission()
         requestMicPermission()
+
+        if (intent?.action == UsbManager.ACTION_USB_ACCESSORY_ATTACHED) {
+            Log.i(TAG, "Launched from USB_ACCESSORY_ATTACHED intent")
+            findAndConnectAccessory()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == UsbManager.ACTION_USB_ACCESSORY_ATTACHED) {
+            Log.i(TAG, "USB_ACCESSORY_ATTACHED on new intent")
+            findAndConnectAccessory()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter().apply {
             addAction(ACTION_USB_PERMISSION)
-            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
+            addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
         }
         registerReceiver(usbReceiver, filter)
+
+        if (!usbConnection.isConnected()) {
+            findAndConnectAccessory()
+        }
     }
 
     override fun onPause() {
@@ -112,11 +131,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CAMERA_PERMISSION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.i(TAG, "Camera permission granted")
-            } else {
-                Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show()
+        when (requestCode) {
+            REQUEST_CAMERA_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.i(TAG, "Camera permission granted")
+                } else {
+                    Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show()
+                }
+            }
+            REQUEST_MIC_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.i(TAG, "Microphone permission granted")
+                } else {
+                    Toast.makeText(this, "Microphone permission is required", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -143,8 +171,7 @@ class MainActivity : AppCompatActivity() {
                 videoText.text = "Ready"
                 audioText.text = "Ready"
             }
-            val deviceName = connectedDevice?.productName ?: "Android Device"
-            usbConnection.sendHello(deviceName, cameraCount = 2, hasMic = true)
+            usbConnection.sendHello("Android Device", cameraCount = 2, hasMic = true)
             Log.i(TAG, "Sent HELLO")
             usbConnection.startReceiveLoop()
         }
@@ -201,37 +228,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun findAndConnectDevice() {
-        val deviceList = usbManager.deviceList
-        if (deviceList.isEmpty()) {
-            updateStatus("No USB devices found")
+    private fun findAndConnectAccessory() {
+        val accessoryList = usbManager.accessoryList
+        if (accessoryList == null || accessoryList.isEmpty()) {
+            updateStatus("No USB accessory found. Connect phone to PC via USB.")
             return
         }
 
-        val device = deviceList.values.firstOrNull()
-        if (device == null) {
-            updateStatus("No USB devices found")
-            return
-        }
-
-        if (usbManager.hasPermission(device)) {
-            onDevicePermissionGranted(device)
+        val accessory = accessoryList[0]
+        if (usbManager.hasPermission(accessory)) {
+            onAccessoryPermissionGranted(accessory)
         } else {
             val permissionIntent = PendingIntent.getBroadcast(
                 this, 0, Intent(ACTION_USB_PERMISSION),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
-            usbManager.requestPermission(device, permissionIntent)
+            usbManager.requestPermission(accessory, permissionIntent)
             updateStatus("Requesting USB permission...")
         }
     }
 
-    private fun onDevicePermissionGranted(device: UsbDevice) {
-        connectedDevice = device
-        deviceText.text = device.productName ?: "Android Device"
-        Log.i(TAG, "USB permission granted for: ${device.productName}")
+    private fun onAccessoryPermissionGranted(accessory: UsbAccessory) {
+        deviceText.text = accessory.description ?: "Android Device"
+        Log.i(TAG, "USB accessory permission granted: ${accessory.description}")
 
-        if (!usbConnection.connect(usbManager, device)) {
+        if (!usbConnection.connectAccessory(usbManager, accessory)) {
             updateStatus("Failed to connect")
         }
     }
@@ -239,7 +260,6 @@ class MainActivity : AppCompatActivity() {
     private fun onDeviceDisconnected() {
         stopStreaming()
         usbConnection.disconnect()
-        connectedDevice = null
     }
 
     private fun startStreaming() {
@@ -267,23 +287,19 @@ class MainActivity : AppCompatActivity() {
         videoStream = stream
         stream.start()
 
-        // Send VIDEO_CONFIG
         val configPayload = ByteArray(19)
         java.nio.ByteBuffer.wrap(configPayload).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
-            putInt(640)       // width
-            putInt(480)       // height
-            putInt(15)        // fps
-            putInt(1_000_000) // bitrate
-            put(0)            // codec: H.264
-            put(0)            // profile: Baseline
-            putShort(30)      // keyframe interval
+            putInt(640)
+            putInt(480)
+            putInt(15)
+            putInt(1_000_000)
+            put(0)
+            put(0)
+            putShort(30)
         }
         usbConnection.sendPacket(Protocol.MessageType.VIDEO_CONFIG, payload = configPayload)
+        usbConnection.sendPacket(Protocol.MessageType.START_STREAM, payload = byteArrayOf(0x03))
 
-        // Send START_STREAM
-        usbConnection.sendPacket(Protocol.MessageType.START_STREAM, payload = byteArrayOf(0x03)) // video + audio
-
-        // Start audio
         val audio = AudioStream()
         var audioFrameId = 0
         audio.onAudioData = { data, size ->
@@ -293,13 +309,12 @@ class MainActivity : AppCompatActivity() {
         audioStream = audio
         audio.start()
 
-        // Send AUDIO_CONFIG
         val audioConfigPayload = ByteArray(5)
         java.nio.ByteBuffer.wrap(audioConfigPayload).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
-            put(0)    // sample rate: 0=16000
-            put(1)    // channels: mono
-            putShort(16) // bit depth
-            put(0)    // format: PCM
+            put(0)
+            put(1)
+            putShort(16)
+            put(0)
         }
         usbConnection.sendPacket(Protocol.MessageType.AUDIO_CONFIG, payload = audioConfigPayload)
 

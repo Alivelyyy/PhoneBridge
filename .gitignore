@@ -6,5 +6,7 @@ android/local.properties
 *.o
 *.so
 *.apk
+*.deb
 .ccache/
 compile_commands.json
+phonebridge_tests

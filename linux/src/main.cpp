@@ -462,12 +462,30 @@ int main(int argc, char* argv[]) {
     gui.onConnect = [&usb]() {
         printf("[INFO] Scanning for device...\n");
         if (usb.scanForDevice()) {
-            printf("[INFO] Device found, connecting...\n");
+            printf("[INFO] AOA device found, connecting...\n");
             if (!usb.connect()) {
                 fprintf(stderr, "[ERROR] Failed to establish USB connection\n");
             }
+            return;
+        }
+
+        printf("[INFO] No AOA device found, attempting AOA switch...\n");
+        if (usb.switchToAoaMode()) {
+            printf("[INFO] AOA switch sent. Waiting for device re-enumeration...\n");
+            for (int attempt = 0; attempt < 20; attempt++) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                if (usb.scanForDevice()) {
+                    printf("[INFO] AOA device found after switch, connecting...\n");
+                    if (usb.connect()) {
+                        return;
+                    }
+                    fprintf(stderr, "[ERROR] Failed to connect after AOA switch\n");
+                    return;
+                }
+            }
+            fprintf(stderr, "[ERROR] Device did not switch to AOA mode after 10 seconds\n");
         } else {
-            printf("[INFO] No device found\n");
+            printf("[INFO] No Android device found\n");
         }
     };
 
