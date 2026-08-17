@@ -1,0 +1,24 @@
+Source: phonebridge
+Section: utils
+Priority: optional
+Maintainer: PhoneBridge <phonebridge@local>
+Build-Depends: debhelper-compat (= 13), cmake (>= 3.16), g++, pkg-config, libusb-1.0-0-dev, libavcodec-dev, libavformat-dev, libavutil-dev, libswscale-dev, libswresample-dev, libgtk-4-dev, libpipewire-0.3-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/phonebridge/phonebridge
+
+Package: phonebridge
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}, v4l2loopback-dkms | v4l2loopback-utils
+Recommends: pipewire, pipewire-pulse
+Description: USB webcam and microphone bridge for Android
+ PhoneBridge turns an Android phone into a USB webcam and microphone
+ for Linux. It streams H.264 video and PCM audio over USB and exposes
+ them as a virtual camera (v4l2loopback) and virtual microphone (PipeWire).
+ .
+ Features:
+  - H.264 video capture from Android camera
+  - PCM audio capture from Android microphone
+  - Virtual webcam via v4l2loopback
+  - Virtual microphone via PipeWire
+  - GTK4 status GUI
+  - Low-latency USB streaming

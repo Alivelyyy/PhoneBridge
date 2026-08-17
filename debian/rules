@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_install:
+	dh_auto_install
+	install -Dm644 debian/phonebridge.desktop debian/phonebridge/usr/share/applications/phonebridge.desktop

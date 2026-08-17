@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=PhoneBridge
+Comment=USB webcam and microphone bridge for Android
+Exec=phonebridge
+Icon=phonebridge
+Terminal=false
+Type=Application
+Categories=Utility;AudioVideo;
+Keywords=webcam;microphone;android;usb;

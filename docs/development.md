@@ -1,279 +1,176 @@
-# PhoneBridge Development Guide
+# Development Guide
 
-## System Requirements
+## Prerequisites
 
-### Target Machine
-
-- **OS:** Linux Mint 22.3 (Ubuntu 24.04 based)
-- **CPU:** Intel Pentium N3700 (4 cores, 1.6 GHz)
-- **RAM:** 4 GB (3.7 GB usable)
-- **Architecture:** x86_64
-- **Kernel:** 6.17.0-35-generic
-
-## Development Environment
-
-### Available Tools
-
-| Tool | Version | Status |
-|---|---|---|
-| GCC | 13.3.0 | Installed |
-| G++ | 13.3.0 | Installed |
-| CMake | 3.28.3 | Installed |
-| GNU Make | 4.3 | Installed |
-| pkg-config | 1.8.1 | Installed |
-| build-essential | 12.10 | Installed |
-| dpkg-dev | 1.22.6 | Installed |
-| fakeroot | 1.33 | Installed |
-| DKMS | 3.0.11 | Installed |
-| Linux headers | 6.17.0-35 | Installed |
-| ADB | 34.0.4 | Installed |
-
-### Runtime Libraries (Installed)
-
-| Library | Version | Status |
-|---|---|---|
-| libusb-1.0 | 1.0.27 | Installed (runtime only) |
-| libavcodec-extra | 6.1.1 | Installed (runtime only) |
-| libavformat | 6.1.1 | Installed (runtime only) |
-| libswscale | 6.1.1 | Installed (runtime only) |
-| PipeWire | 1.0.5 | Installed |
-| GTK4 | 4.14.5 | Installed (runtime only) |
-| v4l2loopback | 0.15.0 | Module loaded |
-
-### Missing Development Libraries
-
-The following `-dev` packages are NOT installed and must be installed before building:
+### Linux
 
 ```bash
 sudo apt install \
-    libusb-1.0-0-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libswresample-dev \
-    libpipewire-0.3-dev \
-    libgtk-4-dev \
-    v4l2loopback-dkms \
-    v4l-utils
+  cmake g++ pkg-config \
+  libusb-1.0-0-dev \
+  libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+  libgtk-4-dev \
+  libpipewire-0.3-dev \
+  v4l2loopback-dkms
 ```
 
-### Missing Android Build Tools
+### Android
 
-The following are NOT installed:
+- JDK 17
+- Android SDK (API 34)
+- Android Build Tools 34.0.0
+- Gradle 8.2.2
 
-| Tool | Status |
-|---|---|
-| JDK 17 | Not installed |
-| Android SDK | Not installed |
-| Gradle | Not installed |
-| Android command-line tools | Not installed |
-
-To install Android build tools:
-
-```bash
-# Install JDK 17
-sudo apt install openjdk-17-jdk
-
-# Download Android command-line tools
-mkdir -p ~/android-sdk/cmdline-tools
-cd ~/android-sdk/cmdline-tools
-wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-unzip commandlinetools-linux-*.zip
-mv cmdline-tools latest
-
-# Set environment variables (add to ~/.bashrc)
-export ANDROID_HOME=$HOME/android-sdk
-export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-
-# Accept licenses and install SDK
-sdkmanager --licenses
-sdkmanager "platforms;android-34" "build-tools;34.0.0"
-```
-
-### Missing Packaging Tools
-
-```bash
-sudo apt install debhelper
-```
+No Android Studio required. All builds are command-line only.
 
 ## Build Commands
 
-### Linux Build
+### Linux
 
 ```bash
-cd phonebridge/linux
-mkdir build && cd build
-cmake ..
+cd linux
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug
 make -j$(nproc)
 ```
 
-### Android Build
+Binary: `build/phonebridge`
+
+### Android
 
 ```bash
-cd phonebridge/android
-chmod +x gradlew
+cd android
 ./gradlew assembleDebug
 ```
 
-### Debian Package Build
+APK: `app/build/outputs/apk/debug/app-debug.apk`
+
+### Debian Package
 
 ```bash
-cd phonebridge
 dpkg-buildpackage -us -uc
 ```
+
+Output: `../phonebridge_1.0.0_amd64.deb`
 
 ## Project Structure
 
 ```
 phonebridge/
-├── android/                    # Android application
-│   ├── app/
-│   │   └── src/main/
-│   │       ├── kotlin/         # Kotlin source files
-│   │       └── res/            # Android resources
-│   ├── gradle/
-│   ├── build.gradle.kts
-│   ├── settings.gradle.kts
-│   └── gradlew
-│
-├── linux/                      # Linux application
-│   ├── CMakeLists.txt
-│   ├── src/
-│   │   ├── main.cpp
-│   │   ├── usb/                # USB communication
-│   │   ├── protocol/           # Protocol implementation
-│   │   ├── video/              # Video decoding
-│   │   ├── audio/              # Audio handling
-│   │   ├── virtual_camera/     # v4l2loopback integration
-│   │   ├── virtual_audio/      # PipeWire integration
-│   │   └── gui/                # GTK4 interface
-│   ├── include/                # Header files
-│   └── tests/                  # Unit tests
-│
-├── protocol/                   # Protocol specification
-│   └── protocol.md
-│
-├── docs/                       # Documentation
-│   ├── architecture.md
-│   ├── development.md
-│   ├── protocol.md
-│   └── troubleshooting.md
-│
-├── packaging/
-│   └── debian/                 # Debian packaging files
-│
-├── scripts/                    # Build and utility scripts
-│
-├── README.md
-└── LICENSE
+├── android/              # Android app
+│   └── app/src/main/kotlin/com/phonebridge/
+│       ├── MainActivity.kt    # Main activity, USB handling
+│       ├── Protocol.kt        # Packet build/parse/checksum
+│       ├── UsbConnection.kt   # USB bulk I/O
+│       ├── VideoStream.kt     # CameraX + MediaCodec encoder
+│       └── AudioStream.kt     # AudioRecord capture
+├── linux/                # Linux app
+│   ├── include/phonebridge/
+│   │   ├── config.h           # Configuration system
+│   │   ├── gui.h              # GTK4 GUI
+│   │   ├── protocol.h         # Packet types and protocol
+│   │   ├── usb_device.h       # USB device communication
+│   │   ├── video_decoder.h    # FFmpeg H.264 decoder
+│   │   ├── virtual_audio.h    # PipeWire virtual mic
+│   │   └── virtual_camera.h   # v4l2loopback output
+│   └── src/
+│       ├── main.cpp           # Application entry point
+│       ├── config/config.cpp  # CLI argument parsing
+│       ├── gui/gui.cpp        # GTK4 interface
+│       ├── protocol/protocol.cpp
+│       ├── usb/usb_device.cpp
+│       ├── video/video_decoder.cpp
+│       ├── virtual_audio/virtual_audio.cpp
+│       └── virtual_camera/virtual_camera.cpp
+├── protocol/
+│   └── protocol.md      # Binary protocol specification
+├── docs/
+│   ├── architecture.md  # System architecture
+│   ├── troubleshooting.md
+│   └── development.md
+└── debian/              # Debian packaging
 ```
 
-## Development Workflow
+## Running
 
-### Phase-Based Development
+### Linux
 
-PhoneBridge is developed in phases. Each phase must be completed, tested, and committed before moving to the next.
+```bash
+# Load v4l2loopback first
+sudo modprobe v4l2loopback devices=1 video_nr=0 card_label="PhoneBridge Camera"
 
-**Current phase:** Phase 0 — Architecture
+# Run with default settings
+./build/phonebridge
 
-### After Each Phase
-
-1. Build the project
-2. Run all tests
-3. Verify functionality manually
-4. Review logs for errors
-5. Commit with phase tag
-
-### Git Commit Convention
-
+# Run with custom settings
+./build/phonebridge --width 1280 --height 720 --fps 30 --bitrate 2000000
 ```
-phase-XX-description
 
-Examples:
-phase-00-architecture
-phase-01-android-setup
-phase-02-linux-skeleton
-phase-03-usb-protocol
-```
+### Android
+
+Install the APK and open PhoneBridge. Tap "Connect" to start USB discovery.
 
 ## Testing
 
-### Unit Tests
-
-Linux unit tests are in `linux/tests/` and use a simple test framework. Run with:
+### Virtual Camera Test
 
 ```bash
-cd phonebridge/linux/build
-ctest --output-on-failure
+# Check device exists
+ls -la /dev/video0
+
+# Test with ffmpeg
+ffmpeg -f v4l2 -i /dev/video0 -frames 1 test.jpg
 ```
 
-### Manual Testing
-
-1. **USB Handshake:** Connect phone, verify HELLO/HELLO_ACK exchange
-2. **Camera Streaming:** Start camera, verify video appears in `/dev/videoX`
-3. **Audio Streaming:** Start microphone, verify audio appears in PipeWire
-4. **Application Integration:** Open OBS/Discord, select PhoneBridge devices
-5. **Disconnect/Reconnect:** Unplug USB, verify graceful handling
-
-### Performance Testing
-
-Monitor resource usage during streaming:
+### Virtual Microphone Test
 
 ```bash
-# CPU and memory
-top -p $(pgrep phonebridge)
+# Check PipeWire source
+pw-cli ls Node | grep PhoneBridge
 
-# USB throughput
-lsusb -t
-
-# Video FPS
-v4l2-ctl --device=/dev/video0 --list-formats-ext
-
-# PipeWire status
-pw-top
+# Test with pactl
+pactl list sources short | grep PhoneBridge
 ```
 
-## Troubleshooting
+### USB Protocol Test
 
-See [troubleshooting.md](troubleshooting.md) for common issues and solutions.
+Run both apps connected via USB and check logs for successful handshake:
 
-## Dependencies Summary
+Linux:
+```
+[INFO] USB device connected
+[INFO] Waiting for HELLO from Android...
+[INFO] Received HELLO from Android device
+[INFO] Sent HELLO_ACK
+```
 
-### Linux Runtime Dependencies
+Android:
+```
+I/PhoneBridge: USB connection established
+I/PhoneBridge: Sent HELLO
+I/PhoneBridge: Received HELLO_ACK
+```
+
+## Dependencies
+
+### Runtime (Linux)
 
 | Package | Purpose |
-|---|---|
-| `libusb-1.0-0` | USB communication |
-| `libavcodec60` | H.264 decoding |
-| `libavformat60` | Media format handling |
-| `libswscale7` | Image scaling/conversion |
-| `libswresample4` | Audio resampling |
-| `libpipewire-0.3-0` | Audio server |
-| `libgtk-4-1` | GUI toolkit |
-| `v4l2loopback` | Virtual video device |
+|---------|---------|
+| libusb-1.0 | USB communication |
+| libavcodec | H.264 decoding |
+| libavutil | FFmpeg utilities |
+| libswscale | Color space conversion |
+| libswresample | Audio resampling |
+| GTK4 | GUI |
+| PipeWire | Virtual audio |
+| v4l2loopback | Virtual camera |
 
-### Linux Build Dependencies
+### Runtime (Android)
 
-| Package | Purpose |
-|---|---|
-| `build-essential` | GCC, G++, Make |
-| `cmake` | Build system |
-| `pkg-config` | Dependency detection |
-| `libusb-1.0-0-dev` | USB headers |
-| `libavcodec-dev` | FFmpeg video headers |
-| `libavformat-dev` | FFmpeg format headers |
-| `libswscale-dev` | FFmpeg scale headers |
-| `libswresample-dev` | FFmpeg audio headers |
-| `libpipewire-0.3-dev` | PipeWire headers |
-| `libgtk-4-dev` | GTK4 headers |
-| `debhelper` | Debian packaging |
-
-### Android Build Dependencies
-
-| Tool | Purpose |
-|---|---|
-| JDK 17 | Java compiler |
-| Android SDK | Android build tools |
-| Gradle | Build automation |
-| Android command-line tools | SDK management |
+| API | Purpose |
+|-----|---------|
+| CameraX | Camera access |
+| MediaCodec | H.264 encoding |
+| AudioRecord | Microphone access |
+| UsbManager | USB communication |

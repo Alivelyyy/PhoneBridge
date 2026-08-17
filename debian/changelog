@@ -1,0 +1,10 @@
+phonebridge (1.0.0-1) unstable; urgency=medium
+
+  * Initial release.
+  * H.264 video streaming over USB.
+  * PCM audio streaming over USB.
+  * Virtual camera via v4l2loopback.
+  * Virtual microphone via PipeWire.
+  * GTK4 status GUI.
+
+ -- PhoneBridge <phonebridge@local>  Sun, 17 Aug 2025 00:00:00 +0000

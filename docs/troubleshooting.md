@@ -1,113 +1,133 @@
 # Troubleshooting
 
-## Virtual Camera Not Appearing
+## Linux
 
-**Symptom:** `/dev/video*` does not exist or PhoneBridge Camera is not listed.
+### "Failed to initialize USB (is libusb installed?)"
 
-**Solution:**
+Install libusb:
 ```bash
-# Load the v4l2loopback module
-sudo modprobe v4l2loopback devices=1 video_nr=0 card_label="PhoneBridge Camera" exclusive_caps=1
+sudo apt install libusb-1.0-0-dev
+```
 
-# Verify it loaded
-ls /dev/video*
+### "No device found"
+
+- Ensure the Android app is running
+- Connect the USB cable
+- Check `lsusb` for the device
+- Some phones require USB OTG support
+
+### "Failed to open /dev/video0"
+
+The v4l2loopback module must be loaded:
+```bash
+sudo modprobe v4l2loopback devices=1 video_nr=0 card_label="PhoneBridge Camera"
+```
+
+To load on boot, add to `/etc/modules`:
+```
+v4l2loopback
+```
+
+### "PipeWire virtual audio init failed"
+
+Install PipeWire:
+```bash
+sudo apt install pipewire pipewire-pulse
+```
+
+Check PipeWire is running:
+```bash
+pw-cli ls Node
+```
+
+### Video is choppy or low FPS
+
+- Reduce resolution: `phonebridge --width 320 --height 240`
+- Reduce FPS: `phonebridge --fps 10`
+- Check USB bandwidth (avoid USB hubs)
+- Ensure the phone is not thermal-throttling
+
+### High latency
+
+- Use USB 3.0 port if available
+- Close other USB devices
+- Reduce video bitrate: `phonebridge --bitrate 500000`
+- Check for WiFi interference (some USB 3.0 hubs)
+
+### Device disconnects randomly
+
+- Try a different USB cable
+- Use a shorter cable
+- Check USB power: some phones need more current than USB 2.0 provides
+- Disable USB autosuspend:
+  ```bash
+  echo -1 | sudo tee /sys/bus/usb/devices/*/power/autosuspend
+  ```
+
+## Android
+
+### "Camera permission is required"
+
+Go to Settings > Apps > PhoneBridge > Permissions > Camera > Allow
+
+### "Microphone permission denied"
+
+Go to Settings > Apps > PhoneBridge > Permissions > Microphone > Allow
+
+### "No USB devices found"
+
+- Enable USB debugging in Developer Options
+- Try a different USB port/cable
+- Some phones need "File Transfer" USB mode
+
+### "USB permission denied"
+
+When connecting, Android shows a dialog asking to allow USB access. Tap "OK".
+
+### App crashes on start
+
+- Ensure Android 8.0+ (API 26)
+- Check logcat: `adb logcat -s PhoneBridge`
+- Reinstall the APK
+
+## Virtual Camera
+
+### Apps can't see the virtual camera
+
+Ensure v4l2loopback is loaded and the device exists:
+```bash
+ls -la /dev/video*
 v4l2-ctl --list-devices
 ```
 
-**Make it persistent across reboots:**
+### Wrong resolution
+
+The virtual camera must be initialized before apps open it. Restart the app after loading v4l2loopback.
+
+### Black screen in Zoom/OBS
+
+Some apps need the first frame before showing video. Wait a few seconds or restart the stream.
+
+## Building
+
+### CMake can't find PipeWire
+
+Install development headers:
 ```bash
-echo "v4l2loopback" | sudo tee /etc/modules-load.d/v4l2loopback.conf
-echo "options v4l2loopback devices=1 video_nr=0 card_label=\"PhoneBridge Camera\" exclusive_caps=1" | sudo tee /etc/modprobe.d/v4l2loopback.conf
+sudo apt install libpipewire-0.3-dev
 ```
 
-## No Audio from Virtual Microphone
+### FFmpeg compile errors
 
-**Symptom:** PhoneBridge Microphone does not appear in audio applications.
-
-**Solution:**
+Ensure all FFmpeg dev packages are installed:
 ```bash
-# Check PipeWire is running
-systemctl --user status pipewire
-
-# Restart PipeWire if needed
-systemctl --user restart pipewire
-
-# List audio devices
-pw-cli list-objects
+sudo apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
 ```
 
-## USB Device Not Detected
+### Android build fails
 
-**Symptom:** PhoneBridge does not detect the Android device.
-
-**Solution:**
+Ensure SDK and build tools are installed:
 ```bash
-# Check USB connection
-lsusb
-
-# Check for Android device (usually Vendor ID 18D1 for Google)
-lsusb | grep -i android
-
-# Check ADB sees the device
-adb devices
-
-# Ensure USB debugging is enabled on the phone
-# Settings > Developer Options > USB Debugging
+cd android && ./gradlew --version
+sdkmanager --list
 ```
-
-## Applications Don't See the Camera
-
-**Symptom:** OBS, Discord, Zoom don't list PhoneBridge Camera.
-
-**Solution:**
-1. Ensure v4l2loopback is loaded BEFORE starting the application
-2. Restart the application after loading the module
-3. Check the application's video device settings
-
-## High CPU Usage
-
-**Symptom:** PhoneBridge uses excessive CPU.
-
-**Solutions:**
-- Lower resolution: Use 640x480 instead of 1280x720
-- Lower frame rate: Use 15 FPS instead of 30 FPS
-- Check for hardware H.264 decode support:
-  ```bash
-  vainfo  # Check VA-API support
-  vdpauinfo  # Check VDPAU support
-  ```
-
-## USB Permission Denied
-
-**Symptom:** Cannot open USB device.
-
-**Solution:**
-```bash
-# Add yourself to the plugdev group
-sudo usermod -aG plugdev $USER
-
-# Create udev rule for Android devices
-echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"' | sudo tee /etc/udev/rules.d/51-android.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-## Protocol Version Mismatch
-
-**Symptom:** ERROR message with VERSION_MISMATCH.
-
-**Solution:**
-Ensure both Android and Linux applications are from the same PhoneBridge release. Update both if needed.
-
-## Decoder Failure
-
-**Symptom:** Video appears corrupted or black.
-
-**Solutions:**
-- Check if the video frame is a keyframe (I-frame)
-- Restart streaming from the Android side
-- Verify FFmpeg is installed correctly:
-  ```bash
-  ffmpeg -version
-  pkg-config --modversion libavcodec
-  ```
