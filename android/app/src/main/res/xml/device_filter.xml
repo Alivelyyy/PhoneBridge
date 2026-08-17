@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PhoneBridge USB device filter -->
+    <!-- This will match any USB device. In production, filter by vendor/product ID -->
+    <usb-device />
+</resources>

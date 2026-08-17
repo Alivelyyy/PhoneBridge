@@ -1,0 +1,10 @@
+build/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.o
+*.so
+*.apk
+.ccache/
+compile_commands.json
