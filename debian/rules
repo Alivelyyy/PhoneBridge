@@ -7,4 +7,5 @@ override_dh_auto_configure:
 
 override_dh_auto_install:
 	dh_auto_install
-	install -Dm644 debian/phonebridge.desktop debian/phonebridge/usr/share/applications/phonebridge.desktop
+	install -Dm644 debian/phonebridge.desktop debian/tmp/usr/share/applications/phonebridge.desktop
+	install -Dm644 debian/phonebridge.svg debian/tmp/usr/share/icons/hicolor/scalable/apps/phonebridge.svg

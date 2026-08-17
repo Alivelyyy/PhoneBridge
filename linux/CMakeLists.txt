@@ -79,3 +79,50 @@ target_compile_options(phonebridge PRIVATE
 
 # Install
 install(TARGETS phonebridge DESTINATION bin)
+
+# Tests
+option(BUILD_TESTS "Build unit tests" ON)
+
+if(BUILD_TESTS)
+    enable_testing()
+
+    # Test sources (only modules that don't require USB/GUI/hardware)
+    set(TEST_SOURCES
+        tests/test_main.cpp
+        tests/test_protocol.cpp
+        tests/test_config.cpp
+        tests/test_audio_handler.cpp
+        tests/test_video_decoder.cpp
+    )
+
+    add_executable(phonebridge_tests ${TEST_SOURCES}
+        src/protocol/protocol.cpp
+        src/config/config.cpp
+        src/audio/audio_handler.cpp
+        src/video/video_decoder.cpp
+    )
+
+    target_include_directories(phonebridge_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${AVCODEC_INCLUDE_DIRS}
+        ${AVFORMAT_INCLUDE_DIRS}
+        ${AVUTIL_INCLUDE_DIRS}
+        ${SWSCALE_INCLUDE_DIRS}
+        ${SWRESAMPLE_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(phonebridge_tests PRIVATE
+        ${AVCODEC_LIBRARIES}
+        ${AVFORMAT_LIBRARIES}
+        ${AVUTIL_LIBRARIES}
+        ${SWSCALE_LIBRARIES}
+        ${SWRESAMPLE_LIBRARIES}
+    )
+
+    target_compile_options(phonebridge_tests PRIVATE
+        -Wall -Wextra -Wpedantic
+    )
+
+    add_test(NAME phonebridge_tests COMMAND phonebridge_tests)
+endif()

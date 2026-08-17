@@ -10,6 +10,10 @@ namespace phonebridge {
 constexpr uint32_t PROTOCOL_MAGIC = 0x50424430; // "PBD0"
 constexpr uint8_t PROTOCOL_VERSION = 1;
 
+// Security limits
+constexpr uint32_t MAX_PAYLOAD_SIZE = 1024 * 1024; // 1 MB max payload
+constexpr uint32_t MAX_FRAME_SIZE = 512 * 1024; // 512 KB max video frame
+
 enum class MessageType : uint8_t {
     HELLO = 0x01,
     HELLO_ACK = 0x02,
@@ -68,10 +72,10 @@ public:
 
     static std::vector<uint8_t> buildPacket(
         MessageType type,
-        uint16_t flags,
-        uint32_t sequence,
-        const uint8_t* payload,
-        uint32_t payloadLength
+        uint16_t flags = 0,
+        uint32_t sequence = 0,
+        const uint8_t* payload = nullptr,
+        uint32_t payloadLength = 0
     );
 
     static bool validatePacket(const uint8_t* data, size_t length);

@@ -9,6 +9,10 @@ object Protocol {
     const val VERSION: Byte = 1
     const val HEADER_SIZE = 28
 
+    // Security limits
+    const val MAX_PAYLOAD_SIZE = 1024 * 1024 // 1 MB max payload
+    const val MAX_FRAME_SIZE = 512 * 1024 // 512 KB max video frame
+
     const val FLAG_FRAGMENT: Short = 0x0001
     const val FLAG_MORE: Short = 0x0002
     const val FLAG_KEYFRAME: Short = 0x0004
@@ -93,7 +97,16 @@ object Protocol {
     fun validatePacket(data: ByteArray): Boolean {
         if (data.size < HEADER_SIZE) return false
         val header = parseHeader(data) ?: return false
+
+        // Security: Validate payload length doesn't exceed maximum
+        if (header.payloadLength > MAX_PAYLOAD_SIZE) return false
+
+        // Security: Verify total packet size matches header
         if (data.size != HEADER_SIZE + header.payloadLength) return false
+
+        // Security: Validate message type is known
+        val typeVal = header.type.toInt() and 0xFF
+        if (typeVal == 0 || typeVal > 0x30) return false
 
         if (header.payloadLength > 0) {
             val payload = data.copyOfRange(HEADER_SIZE, data.size)

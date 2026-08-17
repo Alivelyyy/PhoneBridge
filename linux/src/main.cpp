@@ -135,6 +135,12 @@ static void handleVideoFrame(const phonebridge::PacketHeader& header, const uint
     memcpy(&frameSize, payload + 4, 4);
     frameType = payload[8];
 
+    // Security: Validate frame size doesn't exceed maximum
+    if (frameSize > phonebridge::MAX_FRAME_SIZE) {
+        sendError(phonebridge::ErrorCode::INVALID_PACKET, "VIDEO_FRAME size exceeds maximum");
+        return;
+    }
+
     const uint8_t* nalData = payload + 9;
     size_t nalSize = payloadLen - 9;
 
@@ -156,6 +162,14 @@ static void handleVideoFrame(const phonebridge::PacketHeader& header, const uint
     }
 
     g_frameBuffer.insert(g_frameBuffer.end(), nalData, nalData + nalSize);
+
+    // Security: Prevent buffer overflow by checking accumulated size
+    if (g_frameBuffer.size() > phonebridge::MAX_FRAME_SIZE) {
+        sendError(phonebridge::ErrorCode::INVALID_PACKET, "VIDEO_FRAME too large");
+        g_receivingFrame = false;
+        g_frameBuffer.clear();
+        return;
+    }
 
     if (g_frameBuffer.size() >= g_currentFrameSize || nalSize >= g_currentFrameSize) {
         if (g_decoder && g_streaming) {
@@ -360,7 +374,7 @@ static void onPacketReceived(const phonebridge::PacketHeader& header, const uint
         case MT::STOP_STREAM:  handleStopStream(header, payload, payloadLen); break;
         case MT::PING:         handlePing(header, payload, payloadLen); break;
         case MT::PONG:         printf("[INFO] PONG received\n"); break;
-        case MT::ERROR:        printf("[ERROR] ERROR from device (type=0x%02X)\n", header.type); break;
+        case MT::ERROR:        printf("[ERROR] ERROR from device (type=0x%02X)\n", static_cast<uint8_t>(header.type)); break;
         default:
             printf("[WARN] Unknown message type: 0x%02X\n", static_cast<uint8_t>(header.type));
             break;

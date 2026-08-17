@@ -55,7 +55,17 @@ bool Protocol::validatePacket(const uint8_t* data, size_t length) {
 
     if (header->magic != PROTOCOL_MAGIC) return false;
     if (header->version != PROTOCOL_VERSION) return false;
-    if (header->payloadLength != length - sizeof(PacketHeader)) return false;
+
+    // Security: Validate payload length doesn't exceed maximum
+    if (header->payloadLength > MAX_PAYLOAD_SIZE) return false;
+
+    // Security: Verify total packet size matches header
+    size_t expectedSize = sizeof(PacketHeader) + header->payloadLength;
+    if (length != expectedSize) return false;
+
+    // Security: Validate message type is known
+    uint8_t typeVal = static_cast<uint8_t>(header->type);
+    if (typeVal == 0 || typeVal > 0x30) return false;
 
     if (header->payloadLength > 0) {
         uint32_t expectedChecksum = calculateChecksum(
