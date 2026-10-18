@@ -337,3 +337,12 @@ phonebridge/
 ## License
 
 See [LICENSE](LICENSE) for details.
+
+
+---
+
+## 📚 Full Project Documentation
+
+A complete **5-page engineering deep-dive** for this repo — overview & purpose, technology stack & architecture, feature-by-feature breakdown, code internals & systems design, and development timeline & resume highlights — is available in [`DOCUMENTATION.md`](DOCUMENTATION.md).
+
+*Part of the complete coding-history dossier generated on 2026-10-18.*
